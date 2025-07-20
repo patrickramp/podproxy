@@ -1,0 +1,36 @@
+[package]
+name = "podproxy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+clap = { version = "4.5.41", features = ["derive", "env"] }
+futures-util = "0.3.31"
+reqwest = { version = "0.12.22", features = ["json"] }
+reqwest-eventsource = "0.6.0"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.141"
+tokio = { version = "1.46.1", features = ["full"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+url = "2.5.4"
+warp = "0.3.7"
+sha2 = "0.10.9"
+
+# High-speed optimized build
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false
+incremental = false
+overflow-checks = true
+debug-assertions = false
+
+# musl-optimized build (for container images or static binaries)
+[profile.release-musl]
+inherits = "release"
+opt-level = "z"          
