@@ -13,7 +13,7 @@ pub struct Config {
 
     /// Caddy Admin API endpoint
     #[arg(long, env = "CADDY_ADMIN", default_value = "http://localhost:2019")]
-    caddy_admin: String,
+    pub caddy_admin: String,
 
     /// Health check server port
     #[arg(long, env = "HEALTH_PORT", default_value = "8080")]
@@ -25,7 +25,7 @@ pub struct Config {
 
     /// Load balancing policy: round_robin, least_conn, ip_hash, random, etc.
     #[arg(long, env = "LOAD_BALANCE_POLICY", default_value = "round_robin")]
-    lb_policy: String,
+    pub lb_policy: String,
 
     /// Event stream reconnection timeout (seconds)
     #[arg(long, env = "RECONNECT_TIMEOUT", default_value = "30")]

@@ -1,48 +1,46 @@
-use super::caddy::TlsConfig;
-
+use super::TlsConfig;
 use anyhow::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-
 #[derive(Debug, Deserialize, Clone)]
-struct Container {
+pub struct Container {
     #[serde(rename = "Names")]
     _names: Vec<String>,
     #[serde(rename = "Labels")]
-    labels: HashMap<String, String>,
+    pub labels: HashMap<String, String>,
     #[serde(rename = "State")]
     state: String,
 }
 
 #[derive(Debug, Clone)]
-struct WorkerContainer {
-    container: Container,
-    worker_node: String,
+pub struct WorkerContainer {
+    pub container: Container,
+    pub worker_node: String,
 }
 
 impl WorkerContainer {
-    fn proxy_domain(&self) -> Option<&str> {
+    pub fn proxy_domain(&self) -> Option<&str> {
         self.container
             .labels
             .get("proxy.domain")
             .map(|s| s.as_str())
     }
 
-    fn proxy_port(&self) -> Option<u16> {
+    pub fn proxy_port(&self) -> Option<u16> {
         self.container
             .labels
             .get("proxy.port")
             .and_then(|p| p.parse().ok())
     }
 
-    fn is_proxy_eligible(&self) -> bool {
+    pub fn is_proxy_eligible(&self) -> bool {
         self.container.state == "running"
             && self.proxy_domain().is_some()
             && self.proxy_port().is_some()
     }
 
-    fn upstream_dial(&self) -> Result<String> {
+    pub fn upstream_dial(&self) -> Result<String> {
         let host = extract_host_from_url(&self.worker_node)?;
         let port = self
             .proxy_port()
@@ -50,7 +48,7 @@ impl WorkerContainer {
         Ok(format!("{}:{}", host, port))
     }
 
-    fn tls_config(&self) -> TlsConfig {
+    pub fn tls_config(&self) -> TlsConfig {
         let cert = self.container.labels.get("tls.cert").cloned();
         let key = self.container.labels.get("tls.key").cloned();
         let acme_ca = self.container.labels.get("tls.acme_ca").cloned();

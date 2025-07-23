@@ -1,5 +1,6 @@
 use super::*;
 
+
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use reqwest;
@@ -17,19 +18,16 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
-impl TlsConfig {
-    fn is_manual(&self) -> bool {
-        self.cert.is_some() && self.key.is_some()
-    }
-
-    fn is_acme(&self) -> bool {
-        self.acme_ca.is_some()
-    }
+#[derive(Debug)]
+enum ChangeType {
+    Add,
+    Update,
+    Remove,
 }
 
 pub struct SyncService {
-    config: Config,
-    client: reqwest::Client,
+    pub config: Config,
+    pub client: reqwest::Client,
     current_routes: Arc<Mutex<HashMap<String, DomainGroup>>>,
     debounce_tx: mpsc::UnboundedSender<()>,
 }
@@ -309,102 +307,6 @@ impl SyncService {
         Ok(())
     }
 
-    async fn create_caddy_route(&self, group: &DomainGroup) -> Result<()> {
-        let mut handlers = Vec::new();
 
-        if group.headers.has_rules() {
-            handlers.push(group.headers.to_caddy_handler());
-        }
-
-        let upstreams: Vec<_> = group
-            .upstreams
-            .iter()
-            .map(|dial| CaddyUpstream { dial: dial.clone() })
-            .collect();
-
-        handlers.push(CaddyHandler {
-            handler: "reverse_proxy".to_string(),
-            upstreams: Some(upstreams),
-            set: None,
-            add: None,
-            delete: None,
-            lb_policy: Some(self.config.lb_policy.clone()),
-        });
-
-        let route = CaddyRoute {
-            id: generate_route_id(&group.domain),
-            r#match: vec![CaddyMatcher {
-                host: vec![group.domain.clone()],
-            }],
-            handle: handlers,
-            terminal: Some(true),
-        };
-
-        if group.tls.is_manual() || group.tls.is_acme() {
-            self.setup_tls(&group.domain, &group.tls).await?;
-        }
-
-        let url = format!(
-            "{}/config/apps/http/servers/srv0/routes",
-            self.config.caddy_admin
-        );
-        let response = self.client.patch(&url).json(&route).send().await?;
-
-        if !response.status().is_success() {
-            let error = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!("Route creation failed: {}", error));
-        }
-
-        Ok(())
-    }
-
-    async fn remove_caddy_route(&self, domain: &str) -> Result<()> {
-        let route_id = generate_route_id(domain);
-        let url = format!(
-            "{}/config/apps/http/servers/srv0/routes/{}",
-            self.config.caddy_admin, route_id
-        );
-
-        let response = self.client.delete(&url).send().await?;
-        if !response.status().is_success() && response.status().as_u16() != 404 {
-            let error = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!("Route removal failed: {}", error));
-        }
-        Ok(())
-    }
-
-    async fn setup_tls(&self, domain: &str, tls: &TlsConfig) -> Result<()> {
-        let policy = if tls.is_manual() {
-            CaddyTlsPolicy {
-                certificate: tls.cert.clone(),
-                key: tls.key.clone(),
-                issuer: None,
-            }
-        } else if tls.is_acme() {
-            CaddyTlsPolicy {
-                certificate: None,
-                key: None,
-                issuer: Some(CaddyAcmeIssuer {
-                    module: "acme".to_string(),
-                    ca: tls.acme_ca.clone().unwrap(),
-                }),
-            }
-        } else {
-            return Ok(());
-        };
-
-        let url = format!("{}/config/apps/tls/certificates", self.config.caddy_admin);
-        let response = self.client.patch(&url).json(&policy).send().await?;
-
-        if !response.status().is_success() {
-            let error = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!(
-                "TLS setup failed for {}: {}",
-                domain,
-                error
-            ));
-        }
-
-        Ok(())
-    }
 }
+
